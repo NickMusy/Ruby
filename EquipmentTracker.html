@@ -133,32 +133,26 @@
 <body class="p-4 sm:p-6 lg:p-8">
 
     <div class="max-w-7xl mx-auto">
-        <!-- Header -->
         <header class="text-center mb-10">
             <h1 class="text-4xl font-bold text-white tracking-tight">Rugby Team Inventory</h1>
             <p class="mt-2 text-lg text-gray-400">Manage your equipment and squad lineup with ease.</p>
         </header>
 
-        <!-- Main Content -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <!-- Equipment Inventory Column -->
             <div class="lg:col-span-1 space-y-6" id="inventory-container">
                 <h2 class="text-2xl font-semibold text-white">Equipment Inventory</h2>
-                <!-- Equipment cards will be dynamically inserted here -->
-            </div>
+                </div>
 
-            <!-- Squad & Jersey Tracker Column -->
             <div class="lg:col-span-2">
                 <h2 class="text-2xl font-semibold text-white mb-6">Squad & Jersey Tracker</h2>
                 <div class="card p-4 sm:p-6">
                     <div class="rugby-field rounded-lg">
-                        <!-- Player positions will be dynamically inserted here -->
-                    </div>
+                        </div>
                      <div class="mt-6 flex justify-end">
-                        <button id="saveLineupBtn" class="btn btn-primary">
-                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
-                            Save Lineup
+                        <button id="exportCsvBtn" class="btn btn-primary">
+                            <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                            Export as CSV
                         </button>
                     </div>
                 </div>
@@ -167,7 +161,6 @@
         </main>
     </div>
 
-    <!-- Toast Notification -->
     <div id="toast-notification" class="toast">
         Changes saved successfully!
     </div>
@@ -200,6 +193,7 @@
 
         // --- GLOBAL STATE ---
         let currentInventory = {};
+        let currentSquad = {};
         let isAuthReady = false;
 
         // --- DATA STRUCTURES (for initial seeding) ---
@@ -353,23 +347,61 @@
             }
         });
         
-        document.getElementById('saveLineupBtn').addEventListener('click', async () => {
-            if (!isAuthReady) return;
-            const inputs = rugbyField.querySelectorAll('input[type="text"]');
-            const newPositions = [...squadPositions]; // Start with the base structure
+        // NEW: Auto-save listener for squad changes
+        rugbyField.addEventListener('change', async (e) => {
+            if (!e.target.matches('input[type="text"]') || !isAuthReady) return;
 
-            inputs.forEach(input => {
-                const pos = Number(input.dataset.pos);
-                const field = input.dataset.field;
-                const positionIndex = newPositions.findIndex(p => p.pos === pos);
-                if (positionIndex !== -1) {
-                    newPositions[positionIndex][field] = input.value;
+            const pos = Number(e.target.dataset.pos);
+            const field = e.target.dataset.field;
+            const value = e.target.value;
+
+            // Create a deep copy to avoid mutating state before the update is confirmed
+            const updatedPositions = JSON.parse(JSON.stringify(currentSquad.positions || squadPositions));
+
+            const positionIndex = updatedPositions.findIndex(p => p.pos === pos);
+            if (positionIndex !== -1) {
+                updatedPositions[positionIndex][field] = value;
+                const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
+                await updateDoc(squadRef, { positions: updatedPositions }); 
+                showToast('Player info updated.');
+            }
+        });
+
+        // MODIFIED: Button now exports squad to CSV
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            if (!currentSquad.positions || currentSquad.positions.length === 0) {
+                showToast("No squad data to export.");
+                return;
+            }
+
+            const headers = ['Position Number', 'Position Name', 'Player Name', 'Jersey Number'];
+            
+            // Helper function to handle commas and quotes in CSV fields
+            const formatCsvField = (field) => {
+                const stringField = String(field || ''); // Ensure it's a string, handle null/undefined
+                if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                    // Enclose in double quotes and escape existing double quotes
+                    return `"${stringField.replace(/"/g, '""')}"`;
                 }
-            });
+                return stringField;
+            };
 
-            const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
-            await setDoc(squadRef, { positions: newPositions });
-            showToast('Squad lineup saved!');
+            const csvRows = currentSquad.positions
+                .sort((a, b) => a.pos - b.pos) // Sort by position number
+                .map(p => [p.pos, p.name, p.playerName, p.jerseyNumber].map(formatCsvField).join(','));
+
+            const csvContent = [headers.join(','), ...csvRows].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'rugby-lineup.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Lineup exported as CSV!");
         });
 
         // --- AUTH & INITIAL LOAD ---
@@ -391,7 +423,8 @@
                 const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
                 onSnapshot(squadRef, (doc) => {
                     if (doc.exists()) {
-                        renderSquad(doc.data());
+                        currentSquad = doc.data(); // Keep global state in sync
+                        renderSquad(currentSquad);
                     }
                 });
 
@@ -415,6 +448,7 @@
         };
 
         authenticate();
+        lucide.createIcons(); // Render any static icons on page load
 
     </script>
 </body>
