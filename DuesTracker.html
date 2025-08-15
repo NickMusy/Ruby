@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rugby Club Dues Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #374151;
+            color: #e5e7eb;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .input-field, .select-field {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .input-field:focus, .select-field:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #4f46e5;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .bonus-alert {
+            display: none; /* Hidden by default */
+            background-color: #166534;
+            border: 2px solid #22c55e;
+            color: #d1fae5;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-white tracking-tight">Club Dues Tracker</h1>
+            <p class="mt-2 text-lg text-gray-400">Log player payments and track recruitment bonuses.</p>
+        </header>
+
+        <!-- Recruiter Bonus Notification -->
+        <div id="bonus-alert" class="bonus-alert">
+            <div class="flex items-center">
+                <i data-lucide="party-popper" class="w-8 h-8 mr-4 text-yellow-300"></i>
+                <div>
+                    <h3 class="font-bold text-lg text-white">Recruitment Bonus!</h3>
+                    <p id="bonus-message" class="text-green-200">Message goes here.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Add Payment Form -->
+            <div class="lg-col-span-1">
+                <div class="card p-6">
+                    <h2 class="text-2xl font-semibold text-white mb-6">Log a New Payment</h2>
+                    <form id="dues-form" class="space-y-4">
+                        <div>
+                            <label for="playerName" class="block text-sm font-medium text-gray-300 mb-1">Player Name</label>
+                            <input type="text" id="playerName" class="input-field" required>
+                        </div>
+
+                        <div>
+                            <label for="uflEmail" class="block text-sm font-medium text-gray-300 mb-1">Player UFL Email</label>
+                            <input type="email" id="uflEmail" class="input-field" placeholder="name@ufl.edu" required>
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <input id="isNewPlayer" type="checkbox" class="h-4 w-4 rounded border-gray-500 bg-gray-600 text-indigo-600 focus:ring-indigo-500">
+                            <label for="isNewPlayer" class="ml-2 block text-sm text-gray-300">New Player?</label>
+                        </div>
+
+                        <div id="recruiter-field" class="hidden">
+                            <label for="recruitedBy" class="block text-sm font-medium text-gray-300 mb-1">Recruiter's UFL Email</label>
+                            <input type="email" id="recruitedBy" class="input-field" placeholder="recruiter@ufl.edu">
+                        </div>
+
+                        <div>
+                            <label for="amountPaid" class="block text-sm font-medium text-gray-300 mb-1">Amount Paid ($)</label>
+                            <input type="number" id="amountPaid" class="input-field" step="0.01" required>
+                        </div>
+
+                        <div>
+                            <label for="paymentMethod" class="block text-sm font-medium text-gray-300 mb-1">Payment Method</label>
+                            <select id="paymentMethod" class="select-field">
+                                <option>Venmo</option>
+                                <option>Zelle</option>
+                                <option>Cash</option>
+                                <option>Card</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        
+                        <div id="other-payment-field" class="hidden">
+                            <label for="otherPaymentMethod" class="block text-sm font-medium text-gray-300 mb-1">Please Specify</label>
+                            <input type="text" id="otherPaymentMethod" class="input-field">
+                        </div>
+
+                        <div>
+                            <label for="paymentDate" class="block text-sm font-medium text-gray-300 mb-1">Payment Date</label>
+                            <input type="date" id="paymentDate" class="input-field" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-full !mt-6">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                            Save Payment
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Dues Log Column -->
+            <div class="lg:col-span-2">
+                <h2 class="text-2xl font-semibold text-white mb-6">Payment Log</h2>
+                <div class="card p-2 sm:p-4">
+                    <div id="payments-container" class="space-y-3">
+                        <!-- Payment entries will be dynamically inserted here -->
+                        <p class="text-center text-gray-400 p-8">No payments logged yet.</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="toast">
+        <!-- Message here -->
+    </div>
+
+    <script type="module">
+        // --- FIREBASE IMPORTS AND CONFIG ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD7e8Wid4iVYmDOfmZ44MWDC_EtghFgQWA",
+  authDomain: "rugby-budget-tracker.firebaseapp.com",
+  projectId: "rugby-budget-tracker",
+  storageBucket: "rugby-budget-tracker.firebasestorage.app",
+  messagingSenderId: "543575531550",
+  appId: "1:543575531550:web:ad0979f61d113629890e0f",
+  measurementId: "G-RYTQ4H1ZB6"};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-rugby-app';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- DOM ELEMENTS ---
+        const duesForm = document.getElementById('dues-form');
+        const isNewPlayerCheckbox = document.getElementById('isNewPlayer');
+        const recruiterField = document.getElementById('recruiter-field');
+        const paymentsContainer = document.getElementById('payments-container');
+        const toast = document.getElementById('toast-notification');
+        const bonusAlert = document.getElementById('bonus-alert');
+        const bonusMessage = document.getElementById('bonus-message');
+        const paymentMethodSelect = document.getElementById('paymentMethod');
+        const otherPaymentField = document.getElementById('other-payment-field');
+        const otherPaymentInput = document.getElementById('otherPaymentMethod');
+
+        // --- GLOBAL STATE ---
+        let isAuthReady = false;
+        let allPayments = []; // Cache all payments for bonus calculation
+
+        // --- FUNCTIONS ---
+
+        const showToast = (message) => {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        // Toggle recruiter input field visibility
+        isNewPlayerCheckbox.addEventListener('change', () => {
+            recruiterField.classList.toggle('hidden', !isNewPlayerCheckbox.checked);
+        });
+
+        // Toggle 'Other' payment method field visibility
+        paymentMethodSelect.addEventListener('change', () => {
+            if (paymentMethodSelect.value === 'Other') {
+                otherPaymentField.classList.remove('hidden');
+                otherPaymentInput.required = true;
+            } else {
+                otherPaymentField.classList.add('hidden');
+                otherPaymentInput.required = false;
+                otherPaymentInput.value = '';
+            }
+        });
+
+        // Set default payment date to today
+        document.getElementById('paymentDate').valueAsDate = new Date();
+
+        // Render all payments from Firestore
+        const renderPayments = (payments) => {
+            paymentsContainer.innerHTML = '';
+            if (payments.length === 0) {
+                paymentsContainer.innerHTML = `<p class="text-center text-gray-400 p-8">No payments logged yet.</p>`;
+                return;
+            }
+            
+            payments.sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
+
+            payments.forEach(payment => {
+                const paymentEl = document.createElement('div');
+                paymentEl.className = 'p-3 bg-gray-800 rounded-lg flex items-center justify-between gap-4 flex-wrap';
+                
+                const formattedAmount = `$${Number(payment.amountPaid).toFixed(2)}`;
+                const formattedDate = new Date(payment.paymentDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                let recruiterInfo = '';
+                if (payment.isNewPlayer && payment.recruitedBy) {
+                    recruiterInfo = `<span class="text-xs text-indigo-400 bg-indigo-900/50 px-2 py-1 rounded-full">Recruited by: ${payment.recruitedBy}</span>`;
+                }
+
+                paymentEl.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gray-700 p-2 rounded-md"><i data-lucide="user-check" class="w-5 h-5 text-gray-300"></i></div>
+                        <div>
+                            <p class="font-semibold text-white">${payment.playerName}</p>
+                            <p class="text-sm text-gray-400">${payment.uflEmail || 'No email'}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 text-right">
+                         <div class="flex flex-col items-end">
+                            ${recruiterInfo}
+                            <p class="text-xs text-gray-400 mt-1">${formattedDate} via ${payment.paymentMethod}</p>
+                         </div>
+                        <span class="font-bold text-lg text-green-400">${formattedAmount}</span>
+                        <button class="btn btn-secondary p-2 h-8 w-8 text-red-400" data-id="${payment.id}">
+                            <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                        </button>
+                    </div>
+                `;
+                paymentsContainer.appendChild(paymentEl);
+            });
+            lucide.createIcons();
+        };
+
+        // Check for recruiter bonus eligibility
+        const checkRecruiterBonus = (newPayment) => {
+            if (!newPayment.isNewPlayer || !newPayment.recruitedBy) return;
+
+            const recruiterEmail = newPayment.recruitedBy.toLowerCase();
+            const newPlayerName = newPayment.playerName;
+
+            const recruiterEntry = allPayments.find(p => p.uflEmail && p.uflEmail.toLowerCase() === recruiterEmail);
+            const recruiterDisplayName = recruiterEntry ? recruiterEntry.playerName : recruiterEmail;
+
+            const recruiterPayments = allPayments.filter(p => p.uflEmail && p.uflEmail.toLowerCase() === recruiterEmail);
+            
+            if (recruiterPayments.length > 0) {
+                const totalDuesPaidByRecruiter = recruiterPayments.reduce((sum, p) => sum + Number(p.amountPaid), 0);
+                const bonusAmount = totalDuesPaidByRecruiter * 0.10;
+
+                if (bonusAmount > 0) {
+                    bonusMessage.textContent = `${recruiterDisplayName} is eligible for a $${bonusAmount.toFixed(2)} bonus for recruiting ${newPlayerName}!`;
+                    bonusAlert.style.display = 'block';
+                    setTimeout(() => {
+                        bonusAlert.style.display = 'none';
+                    }, 10000);
+                }
+            }
+        };
+
+        // --- EVENT LISTENERS & DB INTERACTIONS ---
+
+        duesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isAuthReady) return;
+
+            const paymentMethodValue = paymentMethodSelect.value;
+            const finalPaymentMethod = paymentMethodValue === 'Other' ? otherPaymentInput.value : paymentMethodValue;
+
+            const newPayment = {
+                playerName: document.getElementById('playerName').value,
+                uflEmail: document.getElementById('uflEmail').value,
+                isNewPlayer: document.getElementById('isNewPlayer').checked,
+                recruitedBy: document.getElementById('isNewPlayer').checked ? document.getElementById('recruitedBy').value : '',
+                amountPaid: parseFloat(document.getElementById('amountPaid').value),
+                paymentMethod: finalPaymentMethod,
+                paymentDate: document.getElementById('paymentDate').value,
+                timestamp: serverTimestamp()
+            };
+
+            if (!newPayment.playerName || !newPayment.uflEmail || isNaN(newPayment.amountPaid) || !newPayment.paymentDate || !newPayment.paymentMethod) {
+                showToast("Please fill out all required fields.");
+                return;
+            }
+
+            try {
+                const duesCollectionRef = collection(db, `artifacts/${appId}/public/data/duesPayments`);
+                const docRef = await addDoc(duesCollectionRef, newPayment);
+                showToast("Payment saved successfully!");
+                duesForm.reset();
+                document.getElementById('paymentDate').valueAsDate = new Date();
+                recruiterField.classList.add('hidden');
+                otherPaymentField.classList.add('hidden');
+                otherPaymentInput.required = false;
+                
+                checkRecruiterBonus({...newPayment, id: docRef.id});
+
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showToast("Error saving payment.");
+            }
+        });
+
+        paymentsContainer.addEventListener('click', async (e) => {
+            if (e.target.closest('button') && isAuthReady) {
+                const button = e.target.closest('button');
+                const docId = button.dataset.id;
+                if (docId) {
+                    try {
+                        const docRef = doc(db, `artifacts/${appId}/public/data/duesPayments`, docId);
+                        await deleteDoc(docRef);
+                        showToast("Payment deleted.");
+                    } catch (error) {
+                        console.error("Error deleting document: ", error);
+                        showToast("Error deleting payment.");
+                    }
+                }
+            }
+        });
+
+
+        // --- AUTH & INITIAL LOAD ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                isAuthReady = true;
+                
+                const duesCollectionRef = collection(db, `artifacts/${appId}/public/data/duesPayments`);
+                onSnapshot(duesCollectionRef, (snapshot) => {
+                    const payments = [];
+                    snapshot.forEach(doc => {
+                        payments.push({ id: doc.id, ...doc.data() });
+                    });
+                    allPayments = payments;
+                    renderPayments(payments);
+                });
+
+            } else {
+                isAuthReady = false;
+                console.log("User is signed out");
+            }
+        });
+        
+        const authenticate = async () => {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication failed:", error);
+            }
+        };
+
+        authenticate();
+        lucide.createIcons();
+
+    </script>
+</body>
+</html>
