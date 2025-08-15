@@ -78,6 +78,7 @@
         <div class="flex justify-center space-x-4 mb-8">
             <button id="add-revenue-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105"><i class="fas fa-plus-circle mr-2"></i> Add Revenue</button>
             <button id="add-expense-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105"><i class="fas fa-minus-circle mr-2"></i> Add Expense</button>
+            <button id="export-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform transform hover:scale-105"><i class="fas fa-file-excel mr-2"></i> Export to Excel</button>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -139,7 +140,13 @@
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         function initializeAppTracker() {
-            const firebaseConfig = { apiKey: "AIzaSyD7e8Wid4iVYmDOfmZ44MWDC_EtghFgQWA", authDomain: "rugby-budget-tracker.firebaseapp.com", projectId: "rugby-budget-tracker", storageBucket: "rugby-budget-tracker.firebasestorage.app", messagingSenderId: "543575531550", appId: "1:543575531550:web:ad0979f61d113629890e0f", measurementId: "G-RYTQ4H1ZB6" };
+            const firebaseConfig = { apiKey: "AIzaSyD7e8Wid4iVYmDOfmZ44MWDC_EtghFgQWA",
+  authDomain: "rugby-budget-tracker.firebaseapp.com",
+  projectId: "rugby-budget-tracker",
+  storageBucket: "rugby-budget-tracker.firebasestorage.app",
+  messagingSenderId: "543575531550",
+  appId: "1:543575531550:web:ad0979f61d113629890e0f",
+  measurementId: "G-RYTQ4H1ZB6" };
             let app, db, auth;
             try {
                 const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
@@ -379,6 +386,40 @@
             });
 
             const formatCurrency = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+            
+            const exportDataToCSV = () => {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                const headers = ["Date", "Type", "Category/Source", "Description", "Amount", "Payment Type"];
+                csvContent += headers.join(",") + "\r\n";
+
+                const allTransactions = [
+                    ...allRevenues.map(item => ({ ...item, type: 'Revenue' })),
+                    ...allExpenses.map(item => ({ ...item, type: 'Expense' }))
+                ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                allTransactions.forEach(item => {
+                    const row = [
+                        item.date,
+                        item.type,
+                        `"${item.source || item.category}"`,
+                        `"${item.description || ''}"`,
+                        item.amount,
+                        item.paymentType
+                    ];
+                    csvContent += row.join(",") + "\r\n";
+                });
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "UFRFC_Financials.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            document.getElementById('export-btn').addEventListener('click', exportDataToCSV);
+
             window.addEventListener('resize', () => {
                 adjustFontSize(elements.totalRevenue);
                 adjustFontSize(elements.totalExpenses);
