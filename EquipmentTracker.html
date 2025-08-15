@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rugby Team Inventory Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .card {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: #4f46e5;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #374151;
+            color: #e5e7eb;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .input-field {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px #4f46e5;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #22c55e;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .rugby-field {
+            background-color: #166534;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.1) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(255,255,255,0.1) 2px, transparent 2px);
+            background-size: 100px 100px;
+            border: 4px solid #f0fdf4;
+            position: relative;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-auto-rows: min-content;
+            gap: 0.5rem 1rem;
+            align-items: start;
+        }
+        .player-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            text-align: center;
+        }
+        /* Forward Positions */
+        .pos-1 { grid-column: 1 / span 2; grid-row: 1; }
+        .pos-2 { grid-column: 3 / span 2; grid-row: 1; }
+        .pos-3 { grid-column: 5 / span 2; grid-row: 1; }
+        .pos-4 { grid-column: 2 / span 2; grid-row: 2; } /* Changed */
+        .pos-5 { grid-column: 4 / span 2; grid-row: 2; } /* Changed */
+        .pos-6 { grid-column: 1 / span 2; grid-row: 3; }
+        .pos-7 { grid-column: 5 / span 2; grid-row: 3; }
+        .pos-8 { grid-column: 3 / span 2; grid-row: 3; }
+        
+        /* Divider between Forwards and Backs */
+        .field-divider {
+            grid-column: 1 / -1;
+            grid-row: 4;
+            height: 2px;
+            background-image: linear-gradient(to right, white 50%, transparent 50%);
+            background-size: 16px 2px;
+            background-repeat: repeat-x;
+            margin: 1.5rem 0;
+        }
+
+        /* Back Positions */
+        .pos-9 { grid-column: 2 / span 2; grid-row: 5; }
+        .pos-10 { grid-column: 4 / span 2; grid-row: 5; }
+        .pos-11 { grid-column: 1; grid-row: 6; }
+        .pos-12 { grid-column: 2 / span 2; grid-row: 6; }
+        .pos-13 { grid-column: 4 / span 2; grid-row: 6; }
+        .pos-14 { grid-column: 6; grid-row: 6; }
+        .pos-15 { grid-column: 3 / span 2; grid-row: 7; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-white tracking-tight">Rugby Team Inventory</h1>
+            <p class="mt-2 text-lg text-gray-400">Manage your equipment and squad lineup with ease.</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Equipment Inventory Column -->
+            <div class="lg:col-span-1 space-y-6" id="inventory-container">
+                <h2 class="text-2xl font-semibold text-white">Equipment Inventory</h2>
+                <!-- Equipment cards will be dynamically inserted here -->
+            </div>
+
+            <!-- Squad & Jersey Tracker Column -->
+            <div class="lg:col-span-2">
+                <h2 class="text-2xl font-semibold text-white mb-6">Squad & Jersey Tracker</h2>
+                <div class="card p-4 sm:p-6">
+                    <div class="rugby-field rounded-lg">
+                        <!-- Player positions will be dynamically inserted here -->
+                    </div>
+                     <div class="mt-6 flex justify-end">
+                        <button id="saveLineupBtn" class="btn btn-primary">
+                            <i data-lucide="save" class="w-4 h-4 mr-2"></i>
+                            Save Lineup
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="toast">
+        Changes saved successfully!
+    </div>
+
+    <script>
+        // --- DATA ---
+        const initialInventory = {
+            balls: {
+                title: "Rugby Balls",
+                icon: "dribbble",
+                quantity: 15,
+                possessions: [
+                    { id: 1, holder: "Coach Steve" },
+                    { id: 2, holder: "Captain John" },
+                    { id: 3, holder: "Storage Locker" },
+                ]
+            },
+            pads: {
+                title: "Tackle Pads",
+                icon: "shield",
+                quantity: 10,
+                possessions: [
+                    { id: 1, holder: "Equipment Shed" },
+                    { id: 2, holder: "Equipment Shed" },
+                ]
+            },
+            homeJerseys: {
+                title: "Jerseys (Home)",
+                icon: "shirt",
+                quantity: 25,
+                possessions: [
+                    { id: 1, holder: "Player #1 - Mike" },
+                    { id: 2, holder: "Player #2 - Dave" },
+                ]
+            },
+            awayJerseys: {
+                title: "Jerseys (Away)",
+                icon: "shirt",
+                quantity: 25,
+                possessions: [
+                    { id: 1, holder: "In Travel Bag" },
+                    { id: 2, holder: "In Travel Bag" },
+                ]
+            }
+        };
+
+        const squadPositions = [
+            { pos: 1, name: 'Loosehead Prop' }, { pos: 2, name: 'Hooker' }, { pos: 3, name: 'Tighthead Prop' },
+            { pos: 4, name: 'Lock' }, { pos: 5, name: 'Lock' },
+            { pos: 6, name: 'Blindside Flanker' }, { pos: 7, name: 'Openside Flanker' }, { pos: 8, name: 'Number 8' },
+            { pos: 9, name: 'Scrum-half' }, { pos: 10, name: 'Fly-half' },
+            { pos: 11, name: 'Left Wing' }, { pos: 12, name: 'Inside Centre' }, { pos: 13, name: 'Outside Centre' },
+            { pos: 14, name: 'Right Wing' }, { pos: 15, name: 'Fullback' }
+        ];
+        
+        // --- DOM ELEMENTS ---
+        const inventoryContainer = document.getElementById('inventory-container');
+        const rugbyField = document.querySelector('.rugby-field');
+        const toast = document.getElementById('toast-notification');
+
+        // --- FUNCTIONS ---
+
+        // Function to render all inventory items
+        const renderInventory = () => {
+            inventoryContainer.innerHTML = `<h2 class="text-2xl font-semibold text-white">Equipment Inventory</h2>`; // Reset
+            Object.keys(initialInventory).forEach(key => {
+                const item = initialInventory[key];
+                const card = document.createElement('div');
+                card.className = 'card p-4';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="${item.icon}" class="w-6 h-6 text-indigo-400"></i>
+                            <h3 class="text-lg font-semibold text-white">${item.title}</h3>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="btn btn-secondary p-2 h-8 w-8" data-action="decrement" data-item="${key}">-</button>
+                            <span class="text-xl font-bold w-8 text-center" id="quantity-${key}">${item.quantity}</span>
+                            <button class="btn btn-secondary p-2 h-8 w-8" data-action="increment" data-item="${key}">+</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-400 mb-2">Possession Log</h4>
+                        <div class="space-y-2" id="possessions-${key}">
+                            ${item.possessions.map(p => `
+                                <div class="flex items-center gap-2">
+                                    <input type="text" class="input-field text-sm" value="${p.holder}" data-item="${key}" data-id="${p.id}">
+                                    <button class="btn btn-secondary p-2 h-8 w-8 text-red-400" data-action="remove-possession" data-item="${key}" data-id="${p.id}">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-secondary w-full mt-4 text-sm" data-action="add-possession" data-item="${key}">
+                            <i data-lucide="plus" class="w-4 h-4 mr-2"></i> Add Item
+                        </button>
+                    </div>
+                `;
+                inventoryContainer.appendChild(card);
+            });
+            lucide.createIcons(); // Re-render icons
+        };
+
+        // Function to render the squad tracker
+        const renderSquad = () => {
+            rugbyField.innerHTML = ''; // Clear the field
+            
+            // Add the divider between forwards and backs
+            const divider = document.createElement('div');
+            divider.className = 'field-divider';
+            rugbyField.appendChild(divider);
+
+            squadPositions.forEach(p => {
+                const positionEl = document.createElement('div');
+                positionEl.className = `player-card pos-${p.pos}`;
+                positionEl.innerHTML = `
+                    <div class="mx-auto w-12 h-12 rounded-full bg-gray-800 border-2 border-gray-500 flex items-center justify-center font-bold text-lg text-white flex-shrink-0">${p.pos}</div>
+                    <p class="text-xs font-semibold text-gray-300 h-8 flex items-center justify-center text-center">${p.name}</p>
+                    <input type="text" class="input-field text-center text-xs p-1 w-full max-w-[100px]" placeholder="Player Name">
+                    <input type="text" class="input-field text-center text-xs p-1 w-16" placeholder="Jersey #">
+                `;
+                rugbyField.appendChild(positionEl);
+            });
+        };
+        
+        // Function to show a toast notification
+        const showToast = (message) => {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        };
+
+        // --- EVENT LISTENERS ---
+        
+        // Event delegation for inventory actions
+        inventoryContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            const itemKey = button.dataset.item;
+
+            if (action === 'increment') {
+                initialInventory[itemKey].quantity++;
+            } else if (action === 'decrement') {
+                if (initialInventory[itemKey].quantity > 0) {
+                    initialInventory[itemKey].quantity--;
+                }
+            } else if (action === 'add-possession') {
+                const newId = Date.now(); // Simple unique ID
+                initialInventory[itemKey].possessions.push({ id: newId, holder: 'New Entry' });
+                renderInventory(); // Re-render to show the new field
+                return; // Prevent toast for this action
+            } else if (action === 'remove-possession') {
+                const possessionId = parseInt(button.dataset.id);
+                initialInventory[itemKey].possessions = initialInventory[itemKey].possessions.filter(p => p.id !== possessionId);
+                renderInventory();
+                showToast(`${initialInventory[itemKey].title} log updated.`);
+                return;
+            }
+
+            if (action === 'increment' || action === 'decrement') {
+                document.getElementById(`quantity-${itemKey}`).textContent = initialInventory[itemKey].quantity;
+                showToast(`${initialInventory[itemKey].title} quantity updated.`);
+            }
+        });
+
+        // Event delegation for updating possession holder names
+        inventoryContainer.addEventListener('change', (e) => {
+            if (e.target.matches('input[type="text"]')) {
+                const itemKey = e.target.dataset.item;
+                const possessionId = parseInt(e.target.dataset.id);
+                const possession = initialInventory[itemKey].possessions.find(p => p.id === possessionId);
+                if (possession) {
+                    possession.holder = e.target.value;
+                    showToast('Possession holder updated.');
+                }
+            }
+        });
+        
+        // Save Lineup button
+        document.getElementById('saveLineupBtn').addEventListener('click', () => {
+            // In a real app, you would gather the data from the inputs here
+            showToast('Squad lineup saved!');
+        });
+
+
+        // --- INITIAL RENDER ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderInventory();
+            renderSquad();
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
+
