@@ -175,10 +175,9 @@
     <script type="module">
         // --- FIREBASE IMPORTS AND CONFIG ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, collection, onSnapshot, updateDoc, setDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // IMPORTANT: These are placeholders. In a real environment, these would be provided.
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD7e8Wid4iVYmDOfmZ44MWDC_EtghFgQWA",
   authDomain: "rugby-budget-tracker.firebaseapp.com",
   projectId: "rugby-budget-tracker",
@@ -187,6 +186,7 @@
   appId: "1:543575531550:web:ad0979f61d113629890e0f",
   measurementId: "G-RYTQ4H1ZB6"};
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-rugby-app';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
@@ -200,7 +200,7 @@
 
         // --- GLOBAL STATE ---
         let currentInventory = {};
-        let userId = null;
+        let isAuthReady = false;
 
         // --- DATA STRUCTURES (for initial seeding) ---
         const initialInventoryData = {
@@ -222,13 +222,13 @@
         // --- FUNCTIONS ---
 
         // Function to seed initial data if database is empty
-        async function seedInitialData(userId) {
-            const inventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
-            const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+        async function seedInitialData() {
+            const inventoryRef = collection(db, `artifacts/${appId}/public/data/inventory`);
+            const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
 
             const inventorySnapshot = await getDocs(inventoryRef);
             if (inventorySnapshot.empty) {
-                console.log("Seeding initial inventory data...");
+                console.log("Seeding initial public data...");
                 const batch = writeBatch(db);
                 Object.entries(initialInventoryData).forEach(([key, value]) => {
                     const docRef = doc(inventoryRef, key);
@@ -236,7 +236,7 @@
                 });
                 batch.set(squadRef, { positions: squadPositions });
                 await batch.commit();
-                showToast("Welcome! Initial data has been set up.");
+                showToast("Welcome! Public data has been set up.");
             }
         }
 
@@ -314,12 +314,12 @@
         // --- EVENT LISTENERS & DB INTERACTIONS ---
         inventoryContainer.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
-            if (!button || !userId) return;
+            if (!button || !isAuthReady) return;
 
             const action = button.dataset.action;
             const itemKey = button.dataset.item;
             const item = currentInventory[itemKey];
-            const itemRef = doc(db, `artifacts/${appId}/users/${userId}/inventory`, itemKey);
+            const itemRef = doc(db, `artifacts/${appId}/public/data/inventory`, itemKey);
 
             if (action === 'increment') {
                 await updateDoc(itemRef, { quantity: item.quantity + 1 });
@@ -337,7 +337,7 @@
         });
 
         inventoryContainer.addEventListener('change', async (e) => {
-            if (e.target.matches('input[type="text"]') && userId) {
+            if (e.target.matches('input[type="text"]') && isAuthReady) {
                 const itemKey = e.target.dataset.item;
                 const possessionId = Number(e.target.dataset.id);
                 const newHolder = e.target.value;
@@ -347,14 +347,14 @@
                     p.id === possessionId ? { ...p, holder: newHolder } : p
                 );
                 
-                const itemRef = doc(db, `artifacts/${appId}/users/${userId}/inventory`, itemKey);
+                const itemRef = doc(db, `artifacts/${appId}/public/data/inventory`, itemKey);
                 await updateDoc(itemRef, { possessions: newPossessions });
                 showToast('Possession holder updated.');
             }
         });
         
         document.getElementById('saveLineupBtn').addEventListener('click', async () => {
-            if (!userId) return;
+            if (!isAuthReady) return;
             const inputs = rugbyField.querySelectorAll('input[type="text"]');
             const newPositions = [...squadPositions]; // Start with the base structure
 
@@ -367,7 +367,7 @@
                 }
             });
 
-            const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+            const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
             await setDoc(squadRef, { positions: newPositions });
             showToast('Squad lineup saved!');
         });
@@ -375,11 +375,11 @@
         // --- AUTH & INITIAL LOAD ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                userId = user.uid;
-                await seedInitialData(userId);
+                isAuthReady = true;
+                await seedInitialData();
 
-                // Set up real-time listeners
-                const inventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
+                // Set up real-time listeners for public data
+                const inventoryRef = collection(db, `artifacts/${appId}/public/data/inventory`);
                 onSnapshot(inventoryRef, (snapshot) => {
                     const inventoryData = {};
                     snapshot.forEach(doc => {
@@ -388,7 +388,7 @@
                     renderInventory(inventoryData);
                 });
 
-                const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+                const squadRef = doc(db, `artifacts/${appId}/public/data/squad/lineup`);
                 onSnapshot(squadRef, (doc) => {
                     if (doc.exists()) {
                         renderSquad(doc.data());
@@ -396,14 +396,25 @@
                 });
 
             } else {
+                isAuthReady = false;
                 console.log("User is signed out");
             }
         });
+        
+        // Correct authentication flow
+        const authenticate = async () => {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication failed:", error);
+            }
+        };
 
-        // Sign in anonymously
-        signInAnonymously(auth).catch((error) => {
-            console.error("Anonymous sign-in failed:", error);
-        });
+        authenticate();
 
     </script>
 </body>
