@@ -103,8 +103,8 @@
         .pos-1 { grid-column: 1 / span 2; grid-row: 1; }
         .pos-2 { grid-column: 3 / span 2; grid-row: 1; }
         .pos-3 { grid-column: 5 / span 2; grid-row: 1; }
-        .pos-4 { grid-column: 2 / span 2; grid-row: 2; } /* Changed */
-        .pos-5 { grid-column: 4 / span 2; grid-row: 2; } /* Changed */
+        .pos-4 { grid-column: 2 / span 2; grid-row: 2; }
+        .pos-5 { grid-column: 4 / span 2; grid-row: 2; }
         .pos-6 { grid-column: 1 / span 2; grid-row: 3; }
         .pos-7 { grid-column: 5 / span 2; grid-row: 3; }
         .pos-8 { grid-column: 3 / span 2; grid-row: 3; }
@@ -172,69 +172,83 @@
         Changes saved successfully!
     </div>
 
-    <script>
-        // --- DATA ---
-        const initialInventory = {
-            balls: {
-                title: "Rugby Balls",
-                icon: "dribbble",
-                quantity: 15,
-                possessions: [
-                    { id: 1, holder: "Coach Steve" },
-                    { id: 2, holder: "Captain John" },
-                    { id: 3, holder: "Storage Locker" },
-                ]
-            },
-            pads: {
-                title: "Tackle Pads",
-                icon: "shield",
-                quantity: 10,
-                possessions: [
-                    { id: 1, holder: "Equipment Shed" },
-                    { id: 2, holder: "Equipment Shed" },
-                ]
-            },
-            homeJerseys: {
-                title: "Jerseys (Home)",
-                icon: "shirt",
-                quantity: 25,
-                possessions: [
-                    { id: 1, holder: "Player #1 - Mike" },
-                    { id: 2, holder: "Player #2 - Dave" },
-                ]
-            },
-            awayJerseys: {
-                title: "Jerseys (Away)",
-                icon: "shirt",
-                quantity: 25,
-                possessions: [
-                    { id: 1, holder: "In Travel Bag" },
-                    { id: 2, holder: "In Travel Bag" },
-                ]
-            }
-        };
+    <script type="module">
+        // --- FIREBASE IMPORTS AND CONFIG ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, updateDoc, setDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const squadPositions = [
-            { pos: 1, name: 'Loosehead Prop' }, { pos: 2, name: 'Hooker' }, { pos: 3, name: 'Tighthead Prop' },
-            { pos: 4, name: 'Lock' }, { pos: 5, name: 'Lock' },
-            { pos: 6, name: 'Blindside Flanker' }, { pos: 7, name: 'Openside Flanker' }, { pos: 8, name: 'Number 8' },
-            { pos: 9, name: 'Scrum-half' }, { pos: 10, name: 'Fly-half' },
-            { pos: 11, name: 'Left Wing' }, { pos: 12, name: 'Inside Centre' }, { pos: 13, name: 'Outside Centre' },
-            { pos: 14, name: 'Right Wing' }, { pos: 15, name: 'Fullback' }
-        ];
-        
+        // IMPORTANT: These are placeholders. In a real environment, these would be provided.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD7e8Wid4iVYmDOfmZ44MWDC_EtghFgQWA",
+  authDomain: "rugby-budget-tracker.firebaseapp.com",
+  projectId: "rugby-budget-tracker",
+  storageBucket: "rugby-budget-tracker.firebasestorage.app",
+  messagingSenderId: "543575531550",
+  appId: "1:543575531550:web:ad0979f61d113629890e0f",
+  measurementId: "G-RYTQ4H1ZB6"};
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-rugby-app';
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
         // --- DOM ELEMENTS ---
         const inventoryContainer = document.getElementById('inventory-container');
         const rugbyField = document.querySelector('.rugby-field');
         const toast = document.getElementById('toast-notification');
 
+        // --- GLOBAL STATE ---
+        let currentInventory = {};
+        let userId = null;
+
+        // --- DATA STRUCTURES (for initial seeding) ---
+        const initialInventoryData = {
+            balls: { title: "Rugby Balls", icon: "dribbble", quantity: 15, possessions: [{ id: Date.now(), holder: "Coach Steve" }] },
+            pads: { title: "Tackle Pads", icon: "shield", quantity: 10, possessions: [{ id: Date.now() + 1, holder: "Equipment Shed" }] },
+            homeJerseys: { title: "Jerseys (Home)", icon: "shirt", quantity: 25, possessions: [{ id: Date.now() + 2, holder: "Player #1 - Mike" }] },
+            awayJerseys: { title: "Jerseys (Away)", icon: "shirt", quantity: 25, possessions: [{ id: Date.now() + 3, holder: "In Travel Bag" }] }
+        };
+
+        const squadPositions = [
+            { pos: 1, name: 'Loosehead Prop', playerName: '', jerseyNumber: '' }, { pos: 2, name: 'Hooker', playerName: '', jerseyNumber: '' }, { pos: 3, name: 'Tighthead Prop', playerName: '', jerseyNumber: '' },
+            { pos: 4, name: 'Lock', playerName: '', jerseyNumber: '' }, { pos: 5, name: 'Lock', playerName: '', jerseyNumber: '' },
+            { pos: 6, name: 'Blindside Flanker', playerName: '', jerseyNumber: '' }, { pos: 7, name: 'Openside Flanker', playerName: '', jerseyNumber: '' }, { pos: 8, name: 'Number 8', playerName: '', jerseyNumber: '' },
+            { pos: 9, name: 'Scrum-half', playerName: '', jerseyNumber: '' }, { pos: 10, name: 'Fly-half', playerName: '', jerseyNumber: '' },
+            { pos: 11, name: 'Left Wing', playerName: '', jerseyNumber: '' }, { pos: 12, name: 'Inside Centre', playerName: '', jerseyNumber: '' }, { pos: 13, name: 'Outside Centre', playerName: '', jerseyNumber: '' },
+            { pos: 14, name: 'Right Wing', playerName: '', jerseyNumber: '' }, { pos: 15, name: 'Fullback', playerName: '', jerseyNumber: '' }
+        ];
+
         // --- FUNCTIONS ---
 
-        // Function to render all inventory items
-        const renderInventory = () => {
-            inventoryContainer.innerHTML = `<h2 class="text-2xl font-semibold text-white">Equipment Inventory</h2>`; // Reset
-            Object.keys(initialInventory).forEach(key => {
-                const item = initialInventory[key];
+        // Function to seed initial data if database is empty
+        async function seedInitialData(userId) {
+            const inventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
+            const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+
+            const inventorySnapshot = await getDocs(inventoryRef);
+            if (inventorySnapshot.empty) {
+                console.log("Seeding initial inventory data...");
+                const batch = writeBatch(db);
+                Object.entries(initialInventoryData).forEach(([key, value]) => {
+                    const docRef = doc(inventoryRef, key);
+                    batch.set(docRef, value);
+                });
+                batch.set(squadRef, { positions: squadPositions });
+                await batch.commit();
+                showToast("Welcome! Initial data has been set up.");
+            }
+        }
+
+        // Render inventory from Firestore data
+        const renderInventory = (inventoryData) => {
+            inventoryContainer.innerHTML = `<h2 class="text-2xl font-semibold text-white">Equipment Inventory</h2>`;
+            currentInventory = inventoryData; // Update global state
+            
+            Object.keys(inventoryData).sort().forEach(key => {
+                const item = inventoryData[key];
+                if (!item) return;
+
                 const card = document.createElement('div');
                 card.className = 'card p-4';
                 card.innerHTML = `
@@ -245,14 +259,14 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <button class="btn btn-secondary p-2 h-8 w-8" data-action="decrement" data-item="${key}">-</button>
-                            <span class="text-xl font-bold w-8 text-center" id="quantity-${key}">${item.quantity}</span>
+                            <span class="text-xl font-bold w-8 text-center">${item.quantity}</span>
                             <button class="btn btn-secondary p-2 h-8 w-8" data-action="increment" data-item="${key}">+</button>
                         </div>
                     </div>
                     <div>
                         <h4 class="text-sm font-medium text-gray-400 mb-2">Possession Log</h4>
-                        <div class="space-y-2" id="possessions-${key}">
-                            ${item.possessions.map(p => `
+                        <div class="space-y-2">
+                            ${(item.possessions || []).map(p => `
                                 <div class="flex items-center gap-2">
                                     <input type="text" class="input-field text-sm" value="${p.holder}" data-item="${key}" data-id="${p.id}">
                                     <button class="btn btn-secondary p-2 h-8 w-8 text-red-400" data-action="remove-possession" data-item="${key}" data-id="${p.id}">
@@ -268,102 +282,129 @@
                 `;
                 inventoryContainer.appendChild(card);
             });
-            lucide.createIcons(); // Re-render icons
+            lucide.createIcons();
         };
 
-        // Function to render the squad tracker
-        const renderSquad = () => {
-            rugbyField.innerHTML = ''; // Clear the field
-            
-            // Add the divider between forwards and backs
+        // Render squad from Firestore data
+        const renderSquad = (squadData) => {
+            rugbyField.innerHTML = '';
             const divider = document.createElement('div');
             divider.className = 'field-divider';
             rugbyField.appendChild(divider);
 
-            squadPositions.forEach(p => {
+            (squadData.positions || []).forEach(p => {
                 const positionEl = document.createElement('div');
                 positionEl.className = `player-card pos-${p.pos}`;
                 positionEl.innerHTML = `
                     <div class="mx-auto w-12 h-12 rounded-full bg-gray-800 border-2 border-gray-500 flex items-center justify-center font-bold text-lg text-white flex-shrink-0">${p.pos}</div>
                     <p class="text-xs font-semibold text-gray-300 h-8 flex items-center justify-center text-center">${p.name}</p>
-                    <input type="text" class="input-field text-center text-xs p-1 w-full max-w-[100px]" placeholder="Player Name">
-                    <input type="text" class="input-field text-center text-xs p-1 w-16" placeholder="Jersey #">
+                    <input type="text" class="input-field text-center text-xs p-1 w-full max-w-[100px]" placeholder="Player Name" value="${p.playerName || ''}" data-pos="${p.pos}" data-field="playerName">
+                    <input type="text" class="input-field text-center text-xs p-1 w-16" placeholder="Jersey #" value="${p.jerseyNumber || ''}" data-pos="${p.pos}" data-field="jerseyNumber">
                 `;
                 rugbyField.appendChild(positionEl);
             });
         };
-        
-        // Function to show a toast notification
+
         const showToast = (message) => {
             toast.textContent = message;
             toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+            setTimeout(() => toast.classList.remove('show'), 3000);
         };
 
-        // --- EVENT LISTENERS ---
-        
-        // Event delegation for inventory actions
-        inventoryContainer.addEventListener('click', (e) => {
+        // --- EVENT LISTENERS & DB INTERACTIONS ---
+        inventoryContainer.addEventListener('click', async (e) => {
             const button = e.target.closest('button');
-            if (!button) return;
+            if (!button || !userId) return;
 
             const action = button.dataset.action;
             const itemKey = button.dataset.item;
+            const item = currentInventory[itemKey];
+            const itemRef = doc(db, `artifacts/${appId}/users/${userId}/inventory`, itemKey);
 
             if (action === 'increment') {
-                initialInventory[itemKey].quantity++;
-            } else if (action === 'decrement') {
-                if (initialInventory[itemKey].quantity > 0) {
-                    initialInventory[itemKey].quantity--;
-                }
+                await updateDoc(itemRef, { quantity: item.quantity + 1 });
+            } else if (action === 'decrement' && item.quantity > 0) {
+                await updateDoc(itemRef, { quantity: item.quantity - 1 });
             } else if (action === 'add-possession') {
-                const newId = Date.now(); // Simple unique ID
-                initialInventory[itemKey].possessions.push({ id: newId, holder: 'New Entry' });
-                renderInventory(); // Re-render to show the new field
-                return; // Prevent toast for this action
+                const newPossessions = [...(item.possessions || []), { id: Date.now(), holder: 'New Entry' }];
+                await updateDoc(itemRef, { possessions: newPossessions });
             } else if (action === 'remove-possession') {
-                const possessionId = parseInt(button.dataset.id);
-                initialInventory[itemKey].possessions = initialInventory[itemKey].possessions.filter(p => p.id !== possessionId);
-                renderInventory();
-                showToast(`${initialInventory[itemKey].title} log updated.`);
-                return;
-            }
-
-            if (action === 'increment' || action === 'decrement') {
-                document.getElementById(`quantity-${itemKey}`).textContent = initialInventory[itemKey].quantity;
-                showToast(`${initialInventory[itemKey].title} quantity updated.`);
+                const possessionId = Number(button.dataset.id);
+                const newPossessions = item.possessions.filter(p => p.id !== possessionId);
+                await updateDoc(itemRef, { possessions: newPossessions });
+                showToast(`${item.title} log updated.`);
             }
         });
 
-        // Event delegation for updating possession holder names
-        inventoryContainer.addEventListener('change', (e) => {
-            if (e.target.matches('input[type="text"]')) {
+        inventoryContainer.addEventListener('change', async (e) => {
+            if (e.target.matches('input[type="text"]') && userId) {
                 const itemKey = e.target.dataset.item;
-                const possessionId = parseInt(e.target.dataset.id);
-                const possession = initialInventory[itemKey].possessions.find(p => p.id === possessionId);
-                if (possession) {
-                    possession.holder = e.target.value;
-                    showToast('Possession holder updated.');
-                }
+                const possessionId = Number(e.target.dataset.id);
+                const newHolder = e.target.value;
+                
+                const item = currentInventory[itemKey];
+                const newPossessions = item.possessions.map(p => 
+                    p.id === possessionId ? { ...p, holder: newHolder } : p
+                );
+                
+                const itemRef = doc(db, `artifacts/${appId}/users/${userId}/inventory`, itemKey);
+                await updateDoc(itemRef, { possessions: newPossessions });
+                showToast('Possession holder updated.');
             }
         });
         
-        // Save Lineup button
-        document.getElementById('saveLineupBtn').addEventListener('click', () => {
-            // In a real app, you would gather the data from the inputs here
+        document.getElementById('saveLineupBtn').addEventListener('click', async () => {
+            if (!userId) return;
+            const inputs = rugbyField.querySelectorAll('input[type="text"]');
+            const newPositions = [...squadPositions]; // Start with the base structure
+
+            inputs.forEach(input => {
+                const pos = Number(input.dataset.pos);
+                const field = input.dataset.field;
+                const positionIndex = newPositions.findIndex(p => p.pos === pos);
+                if (positionIndex !== -1) {
+                    newPositions[positionIndex][field] = input.value;
+                }
+            });
+
+            const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+            await setDoc(squadRef, { positions: newPositions });
             showToast('Squad lineup saved!');
         });
 
+        // --- AUTH & INITIAL LOAD ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                await seedInitialData(userId);
 
-        // --- INITIAL RENDER ---
-        document.addEventListener('DOMContentLoaded', () => {
-            renderInventory();
-            renderSquad();
-            lucide.createIcons();
+                // Set up real-time listeners
+                const inventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
+                onSnapshot(inventoryRef, (snapshot) => {
+                    const inventoryData = {};
+                    snapshot.forEach(doc => {
+                        inventoryData[doc.id] = doc.data();
+                    });
+                    renderInventory(inventoryData);
+                });
+
+                const squadRef = doc(db, `artifacts/${appId}/users/${userId}/squad/lineup`);
+                onSnapshot(squadRef, (doc) => {
+                    if (doc.exists()) {
+                        renderSquad(doc.data());
+                    }
+                });
+
+            } else {
+                console.log("User is signed out");
+            }
         });
+
+        // Sign in anonymously
+        signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous sign-in failed:", error);
+        });
+
     </script>
 </body>
 </html>
-
